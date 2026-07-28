@@ -1,37 +1,37 @@
 CREATE DATABASE IF NOT EXISTS verif_cate CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE verif_cate;
 
-CREATE TABLE IF NOT EXISTS national_directorates (
-  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(180) NOT NULL UNIQUE,
-  active TINYINT(1) NOT NULL DEFAULT 1
+-- Copia independiente del catálogo institucional de estructura-zonas.
+-- Esta base no modifica ni depende de estructura_zonas_test en producción.
+CREATE TABLE IF NOT EXISTS unit_types (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  description VARCHAR(255) NULL,
+  created_at TIMESTAMP NULL,
+  updated_at TIMESTAMP NULL
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS zones (
-  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  national_directorate_id INT UNSIGNED NOT NULL,
-  name VARCHAR(180) NOT NULL,
-  active TINYINT(1) NOT NULL DEFAULT 1,
-  UNIQUE KEY uq_zone (national_directorate_id, name),
-  CONSTRAINT fk_zone_directorate FOREIGN KEY (national_directorate_id) REFERENCES national_directorates(id)
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS areas (
-  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  zone_id INT UNSIGNED NOT NULL,
-  name VARCHAR(180) NOT NULL,
-  active TINYINT(1) NOT NULL DEFAULT 1,
-  UNIQUE KEY uq_area (zone_id, name),
-  CONSTRAINT fk_area_zone FOREIGN KEY (zone_id) REFERENCES zones(id)
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS services (
-  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  area_id INT UNSIGNED NOT NULL,
+CREATE TABLE IF NOT EXISTS organizational_units (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  parent_id BIGINT UNSIGNED NULL,
+  unit_type_id BIGINT UNSIGNED NOT NULL,
+  code VARCHAR(50) NULL,
   name VARCHAR(200) NOT NULL,
-  active TINYINT(1) NOT NULL DEFAULT 1,
-  UNIQUE KEY uq_service (area_id, name),
-  CONSTRAINT fk_service_area FOREIGN KEY (area_id) REFERENCES areas(id)
+  short_name VARCHAR(100) NULL,
+  level INT NULL,
+  is_operational TINYINT(1) NOT NULL DEFAULT 0,
+  is_administrative TINYINT(1) NOT NULL DEFAULT 1,
+  status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+  legacy_table VARCHAR(100) NULL,
+  legacy_id VARCHAR(100) NULL,
+  created_at TIMESTAMP NULL,
+  updated_at TIMESTAMP NULL,
+  CONSTRAINT fk_org_parent FOREIGN KEY (parent_id) REFERENCES organizational_units(id),
+  CONSTRAINT fk_org_type FOREIGN KEY (unit_type_id) REFERENCES unit_types(id),
+  INDEX idx_org_parent (parent_id),
+  INDEX idx_org_type (unit_type_id),
+  INDEX idx_org_code (code),
+  INDEX idx_org_status (status)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS requests (
@@ -48,10 +48,10 @@ CREATE TABLE IF NOT EXISTS requests (
   promotion_number VARCHAR(30) NULL,
   email VARCHAR(150) NOT NULL,
   phone VARCHAR(20) NOT NULL,
-  national_directorate_id INT UNSIGNED NOT NULL,
-  zone_id INT UNSIGNED NULL,
-  area_id INT UNSIGNED NULL,
-  service_id INT UNSIGNED NOT NULL,
+  national_directorate_id BIGINT UNSIGNED NOT NULL,
+  zone_id BIGINT UNSIGNED NULL,
+  area_id BIGINT UNSIGNED NULL,
+  service_id BIGINT UNSIGNED NOT NULL,
   card_condition VARCHAR(50) NOT NULL,
   barcode_value VARCHAR(120) NULL,
   barcode_readable TINYINT(1) NOT NULL DEFAULT 1,
@@ -68,10 +68,14 @@ CREATE TABLE IF NOT EXISTS requests (
   ip_address VARCHAR(45) NULL,
   user_agent VARCHAR(500) NULL,
   UNIQUE KEY uq_barcode (barcode_value),
-  CONSTRAINT fk_request_directorate FOREIGN KEY (national_directorate_id) REFERENCES national_directorates(id),
-  CONSTRAINT fk_request_zone FOREIGN KEY (zone_id) REFERENCES zones(id),
-  CONSTRAINT fk_request_area FOREIGN KEY (area_id) REFERENCES areas(id),
-  CONSTRAINT fk_request_service FOREIGN KEY (service_id) REFERENCES services(id)
+  CONSTRAINT fk_request_directorate FOREIGN KEY (national_directorate_id) REFERENCES organizational_units(id),
+  CONSTRAINT fk_request_zone FOREIGN KEY (zone_id) REFERENCES organizational_units(id),
+  CONSTRAINT fk_request_area FOREIGN KEY (area_id) REFERENCES organizational_units(id),
+  CONSTRAINT fk_request_service FOREIGN KEY (service_id) REFERENCES organizational_units(id),
+  INDEX idx_request_directorate (national_directorate_id),
+  INDEX idx_request_zone (zone_id),
+  INDEX idx_request_area (area_id),
+  INDEX idx_request_service (service_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS status_history (
@@ -85,11 +89,17 @@ CREATE TABLE IF NOT EXISTS status_history (
   CONSTRAINT fk_history_request FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
-INSERT IGNORE INTO national_directorates (id, name) VALUES
-(1, 'Dirección Nacional de Recursos Humanos');
-INSERT IGNORE INTO zones (id, national_directorate_id, name) VALUES
-(1, 1, 'Sede Central');
-INSERT IGNORE INTO areas (id, zone_id, name) VALUES
-(1, 1, 'Administración');
-INSERT IGNORE INTO services (id, area_id, name) VALUES
-(1, 1, 'Departamento por definir');
+INSERT IGNORE INTO unit_types (name, description) VALUES
+('institucion', 'Institución principal'),
+('direccion_nacional', 'Dirección nacional'),
+('zona_policial', 'Zona policial'),
+('area', 'Área regional, operativa o administrativa'),
+('departamento', 'Departamento'),
+('division', 'División'),
+('seccion', 'Sección'),
+('oficina', 'Oficina'),
+('dependencia', 'Dependencia'),
+('cuartel', 'Cuartel'),
+('estacion', 'Estación'),
+('subestacion', 'Subestación'),
+('puesto', 'Puesto');
