@@ -1,37 +1,14 @@
 CREATE DATABASE IF NOT EXISTS verif_cate CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE verif_cate;
 
--- Copia independiente del catálogo institucional de estructura-zonas.
--- Esta base no modifica ni depende de estructura_zonas_test en producción.
-CREATE TABLE IF NOT EXISTS unit_types (
+CREATE TABLE IF NOT EXISTS institutional_units (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL UNIQUE,
-  description VARCHAR(255) NULL,
-  created_at TIMESTAMP NULL,
-  updated_at TIMESTAMP NULL
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS organizational_units (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  parent_id BIGINT UNSIGNED NULL,
-  unit_type_id BIGINT UNSIGNED NOT NULL,
-  code VARCHAR(50) NULL,
+  code VARCHAR(20) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
-  short_name VARCHAR(100) NULL,
-  level INT NULL,
-  is_operational TINYINT(1) NOT NULL DEFAULT 0,
-  is_administrative TINYINT(1) NOT NULL DEFAULT 1,
-  status ENUM('active','inactive') NOT NULL DEFAULT 'active',
-  legacy_table VARCHAR(100) NULL,
-  legacy_id VARCHAR(100) NULL,
-  created_at TIMESTAMP NULL,
-  updated_at TIMESTAMP NULL,
-  CONSTRAINT fk_org_parent FOREIGN KEY (parent_id) REFERENCES organizational_units(id),
-  CONSTRAINT fk_org_type FOREIGN KEY (unit_type_id) REFERENCES unit_types(id),
-  INDEX idx_org_parent (parent_id),
-  INDEX idx_org_type (unit_type_id),
-  INDEX idx_org_code (code),
-  INDEX idx_org_status (status)
+  category ENUM('DIRECCION','ZONA','SERVICIO') NOT NULL,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  INDEX idx_unit_category (category),
+  INDEX idx_unit_active (active)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS requests (
@@ -48,10 +25,7 @@ CREATE TABLE IF NOT EXISTS requests (
   promotion_number VARCHAR(30) NULL,
   email VARCHAR(150) NOT NULL,
   phone VARCHAR(20) NOT NULL,
-  national_directorate_id BIGINT UNSIGNED NOT NULL,
-  zone_id BIGINT UNSIGNED NULL,
-  area_id BIGINT UNSIGNED NULL,
-  service_id BIGINT UNSIGNED NOT NULL,
+  institutional_unit_id BIGINT UNSIGNED NOT NULL,
   card_condition VARCHAR(50) NOT NULL,
   barcode_value VARCHAR(120) NULL,
   barcode_readable TINYINT(1) NOT NULL DEFAULT 1,
@@ -68,14 +42,8 @@ CREATE TABLE IF NOT EXISTS requests (
   ip_address VARCHAR(45) NULL,
   user_agent VARCHAR(500) NULL,
   UNIQUE KEY uq_barcode (barcode_value),
-  CONSTRAINT fk_request_directorate FOREIGN KEY (national_directorate_id) REFERENCES organizational_units(id),
-  CONSTRAINT fk_request_zone FOREIGN KEY (zone_id) REFERENCES organizational_units(id),
-  CONSTRAINT fk_request_area FOREIGN KEY (area_id) REFERENCES organizational_units(id),
-  CONSTRAINT fk_request_service FOREIGN KEY (service_id) REFERENCES organizational_units(id),
-  INDEX idx_request_directorate (national_directorate_id),
-  INDEX idx_request_zone (zone_id),
-  INDEX idx_request_area (area_id),
-  INDEX idx_request_service (service_id)
+  CONSTRAINT fk_request_unit FOREIGN KEY (institutional_unit_id) REFERENCES institutional_units(id),
+  INDEX idx_request_unit (institutional_unit_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS status_history (
@@ -89,17 +57,54 @@ CREATE TABLE IF NOT EXISTS status_history (
   CONSTRAINT fk_history_request FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
-INSERT IGNORE INTO unit_types (name, description) VALUES
-('institucion', 'Institución principal'),
-('direccion_nacional', 'Dirección nacional'),
-('zona_policial', 'Zona policial'),
-('area', 'Área regional, operativa o administrativa'),
-('departamento', 'Departamento'),
-('division', 'División'),
-('seccion', 'Sección'),
-('oficina', 'Oficina'),
-('dependencia', 'Dependencia'),
-('cuartel', 'Cuartel'),
-('estacion', 'Estación'),
-('subestacion', 'Subestación'),
-('puesto', 'Puesto');
+INSERT INTO institutional_units (code, name, category) VALUES
+('DN-01','Dirección General','DIRECCION'),
+('DN-11','Dirección de Responsabilidad Profesional','DIRECCION'),
+('DN-19','Dirección de Transporte y Mantenimiento','DIRECCION'),
+('DN-06','Dirección Nacional Antidrogas','DIRECCION'),
+('DN-13','Dirección Nacional de Armamentos y Equipos de Seguridad','DIRECCION'),
+('DN-14','Dirección Nacional de Asesoría Legal','DIRECCION'),
+('DN-10','Dirección Nacional de Comunicación Estratégica','DIRECCION'),
+('DN-04','Dirección Nacional de Docencia','DIRECCION'),
+('DN-03','Dirección Nacional de Fuerzas Especiales','DIRECCION'),
+('DN-15','Dirección Nacional de Infraestructura y Mantenimiento','DIRECCION'),
+('DN-16','Dirección Nacional de Ingeniería y Servicios Policiales','DIRECCION'),
+('DN-02','Dirección Nacional de Inteligencia Policial','DIRECCION'),
+('DN-17','Dirección Nacional de Investigación Judicial','DIRECCION'),
+('DN-18','Dirección Nacional de Operaciones de Tránsito','DIRECCION'),
+('DN-07','Dirección Nacional de Operaciones Policiales','DIRECCION'),
+('DN-12','Dirección Nacional de Planificación Estratégica Institucional','DIRECCION'),
+('DN-05','Dirección Nacional de Recursos Humanos','DIRECCION'),
+('DN-20','Dirección Nacional de Seguridad Penitenciaria','DIRECCION'),
+('DN-08','Dirección Nacional de Servicios Generales','DIRECCION'),
+('DN-09','Dirección Nacional de Telemática','DIRECCION'),
+('SG-1','Secretaría General','DIRECCION'),
+('ZP-01','1 Zona Policial - Bocas del Toro','ZONA'),
+('ZP-02','2 Zona Policial - Coclé','ZONA'),
+('ZP-03','3 Zona Policial - Colón','ZONA'),
+('ZP-04','4 Zona Policial - Chiriquí','ZONA'),
+('ZP-06','6 Zona Policial - Herrera','ZONA'),
+('ZP-07','7 Zona Policial - Los Santos','ZONA'),
+('ZP-08','8 Zona Policial - Oeste','ZONA'),
+('ZP-09','9 Zona Policial - Veraguas','ZONA'),
+('ZP-10','10 Zona Policial - Panamá Oeste','ZONA'),
+('ZP-11','11 Zona Policial - San Miguelito','ZONA'),
+('ZP-12','12 Zona Policial - Canal','ZONA'),
+('ZP-13','13 Zona Policial - Arraiján','ZONA'),
+('ZP-14','14 Zona Policial - Norte','ZONA'),
+('ZP-15','15 Zona Policial - Don Bosco','ZONA'),
+('ZP-16','16 Zona Policial - Pacora','ZONA'),
+('ZP-18','18 Zona Policial - Comarcal Occidente','ZONA'),
+('ZP-19','19 Zona Policial - Chame','ZONA'),
+('ZP-21','21 Zona Policial - San Francisco','ZONA'),
+('SP-8','Fuerza Urbana de Rápida Intervención ALFA (FURIA)','SERVICIO'),
+('SP-7','Servicio Policial Ambiental y Rural','SERVICIO'),
+('SP-5','Servicio Policial Contra la Violencia Doméstica y de Género','SERVICIO'),
+('SP-3','Servicio Policial de Integración y Participación Ciudadana','SERVICIO'),
+('SP-2','Servicio Policial de Niñez y Adolescencia','SERVICIO'),
+('SP-4','Servicio Policial de Sedes Diplomáticas','SERVICIO'),
+('SP-6','Servicio Policial de Turismo','SERVICIO'),
+('SP-1','Servicio Policial Motorizado "Linces" (SPM)','SERVICIO'),
+('SP-10','Unidad Policial del Metro (UPM)','SERVICIO'),
+('SP-9','Unidad Preventiva Comunitaria (UPC)','SERVICIO')
+ON DUPLICATE KEY UPDATE name=VALUES(name), category=VALUES(category), active=1;
