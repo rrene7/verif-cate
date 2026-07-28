@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS requests (
   email VARCHAR(150) NOT NULL,
   phone VARCHAR(20) NOT NULL,
   institutional_unit_id BIGINT UNSIGNED NOT NULL,
+  exact_work_location VARCHAR(255) NOT NULL,
   card_condition VARCHAR(50) NOT NULL,
   barcode_value VARCHAR(120) NULL,
   barcode_readable TINYINT(1) NOT NULL DEFAULT 1,
