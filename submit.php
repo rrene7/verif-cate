@@ -39,13 +39,33 @@ try {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         throw new RuntimeException('El correo electrónico no tiene un formato válido.');
     }
-    if (!$directorateId || !$serviceId) {
-        throw new RuntimeException('Seleccione una ubicación institucional válida.');
+    if (!$directorateId || !$zoneId || !$areaId || !$serviceId) {
+        throw new RuntimeException('Seleccione la Dirección Nacional, zona, área y servicio.');
     }
 
-    $locationCheck = $pdo->prepare(
-        'SELECT s.id FROM services s JOIN areas a ON a.id=s.area_id JOIN zones z ON z.id=a.zone_id WHERE s.id=? AND a.id=? AND z.id=? AND z.national_directorate_id=?'
-    );
+    $locationCheck = $pdo->prepare(<<<SQL
+SELECT servicio.id
+FROM organizational_units servicio
+JOIN unit_types tipo_servicio ON tipo_servicio.id = servicio.unit_type_id
+JOIN organizational_units area ON area.id = servicio.parent_id
+JOIN unit_types tipo_area ON tipo_area.id = area.unit_type_id
+JOIN organizational_units zona ON zona.id = area.parent_id
+JOIN unit_types tipo_zona ON tipo_zona.id = zona.unit_type_id
+JOIN organizational_units direccion ON direccion.id = zona.parent_id
+JOIN unit_types tipo_direccion ON tipo_direccion.id = direccion.unit_type_id
+WHERE servicio.id = ?
+  AND area.id = ?
+  AND zona.id = ?
+  AND direccion.id = ?
+  AND servicio.status = 'active'
+  AND area.status = 'active'
+  AND zona.status = 'active'
+  AND direccion.status = 'active'
+  AND tipo_servicio.name IN ('departamento','division','seccion','oficina','dependencia','cuartel','estacion','subestacion','puesto')
+  AND tipo_area.name = 'area'
+  AND tipo_zona.name = 'zona_policial'
+  AND tipo_direccion.name = 'direccion_nacional'
+SQL);
     $locationCheck->execute([$serviceId, $areaId, $zoneId, $directorateId]);
     if (!$locationCheck->fetchColumn()) {
         throw new RuntimeException('La combinación de Dirección Nacional, zona, área y servicio no es válida.');
