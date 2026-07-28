@@ -19,7 +19,7 @@ try {
     $required = [
         'position_number', 'rank_name', 'national_id', 'first_name', 'last_name',
         'promotion_type', 'email', 'phone', 'institutional_unit_id', 'exact_work_location',
-        'card_condition', 'declaration'
+        'card_expiration_date', 'card_condition', 'declaration'
     ];
 
     foreach ($required as $field) {
@@ -34,6 +34,7 @@ try {
     $condition = trim((string) $_POST['card_condition']);
     $unitId = filter_var($_POST['institutional_unit_id'], FILTER_VALIDATE_INT);
     $exactWorkLocation = trim((string) $_POST['exact_work_location']);
+    $cardExpirationDate = trim((string) $_POST['card_expiration_date']);
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         throw new RuntimeException('El correo electrónico no tiene un formato válido.');
@@ -43,6 +44,12 @@ try {
     }
     if (mb_strlen($exactWorkLocation) > 255) {
         throw new RuntimeException('La ubicación exacta de trabajo no puede superar 255 caracteres.');
+    }
+
+    $expirationDate = DateTimeImmutable::createFromFormat('!Y-m-d', $cardExpirationDate);
+    $expirationErrors = DateTimeImmutable::getLastErrors();
+    if (!$expirationDate || ($expirationErrors !== false && ($expirationErrors['warning_count'] > 0 || $expirationErrors['error_count'] > 0))) {
+        throw new RuntimeException('La fecha de expiración del carné no es válida.');
     }
 
     $unitCheck = $pdo->prepare('SELECT id FROM institutional_units WHERE id = ? AND active = 1 LIMIT 1');
@@ -85,12 +92,12 @@ try {
 INSERT INTO requests (
  request_number, position_number, rank_name, first_name, middle_name, last_name, second_last_name,
  national_id, promotion_type, promotion_number, email, phone, institutional_unit_id, exact_work_location,
- card_condition, barcode_value, barcode_readable, card_front_path, card_back_path,
+ card_expiration_date, card_condition, barcode_value, barcode_readable, card_front_path, card_back_path,
  person_with_card_path, loss_report_number, notes, status, submitted_at, ip_address, user_agent
 ) VALUES (
  :request_number, :position_number, :rank_name, :first_name, :middle_name, :last_name, :second_last_name,
  :national_id, :promotion_type, :promotion_number, :email, :phone, :institutional_unit_id, :exact_work_location,
- :card_condition, :barcode_value, :barcode_readable, :card_front_path, :card_back_path,
+ :card_expiration_date, :card_condition, :barcode_value, :barcode_readable, :card_front_path, :card_back_path,
  :person_with_card_path, :loss_report_number, :notes, 'RECIBIDA', :submitted_at, :ip_address, :user_agent
 )
 SQL);
@@ -110,6 +117,7 @@ SQL);
         'phone' => trim((string) $_POST['phone']),
         'institutional_unit_id' => $unitId,
         'exact_work_location' => $exactWorkLocation,
+        'card_expiration_date' => $expirationDate->format('Y-m-d'),
         'card_condition' => $condition,
         'barcode_value' => $barcode ?: null,
         'barcode_readable' => (int) ($_POST['barcode_readable'] ?? 1),
