@@ -29,6 +29,19 @@ $selected = null;
 $requests = [];
 $summary = [];
 
+$locationSelect = <<<SQL
+SELECT r.*,
+       direccion.name AS national_directorate,
+       zona.name AS zone_name,
+       area.name AS area_name,
+       servicio.name AS service_name
+FROM requests r
+LEFT JOIN organizational_units direccion ON direccion.id = r.national_directorate_id
+LEFT JOIN organizational_units zona ON zona.id = r.zone_id
+LEFT JOIN organizational_units area ON area.id = r.area_id
+LEFT JOIN organizational_units servicio ON servicio.id = r.service_id
+SQL;
+
 if ($authenticated) {
     $statusFilter = trim((string) ($_GET['status'] ?? ''));
     $search = trim((string) ($_GET['q'] ?? ''));
@@ -36,15 +49,15 @@ if ($authenticated) {
     $params = [];
 
     if ($statusFilter !== '') {
-        $where[] = 'status = :status';
+        $where[] = 'r.status = :status';
         $params['status'] = $statusFilter;
     }
     if ($search !== '') {
-        $where[] = '(request_number LIKE :q OR position_number LIKE :q OR national_id LIKE :q OR first_name LIKE :q OR last_name LIKE :q OR barcode_value LIKE :q)';
+        $where[] = '(r.request_number LIKE :q OR r.position_number LIKE :q OR r.national_id LIKE :q OR r.first_name LIKE :q OR r.last_name LIKE :q OR r.barcode_value LIKE :q)';
         $params['q'] = '%' . $search . '%';
     }
 
-    $sql = 'SELECT * FROM requests' . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY submitted_at DESC LIMIT 300';
+    $sql = $locationSelect . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY r.submitted_at DESC LIMIT 300';
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $requests = $stmt->fetchAll();
@@ -55,7 +68,7 @@ if ($authenticated) {
     }
 
     if (isset($_GET['view'])) {
-        $detail = $pdo->prepare('SELECT * FROM requests WHERE id = ?');
+        $detail = $pdo->prepare($locationSelect . ' WHERE r.id = ?');
         $detail->execute([(int) $_GET['view']]);
         $selected = $detail->fetch() ?: null;
     }
@@ -117,9 +130,9 @@ if ($authenticated) {
                 <div class="field"><strong>Posición</strong><br><?= e($selected['position_number']) ?></div>
                 <div class="field"><strong>Cédula</strong><br><?= e($selected['national_id']) ?></div>
                 <div class="field"><strong>Promoción</strong><br><?= e($selected['promotion_type'] . ' ' . $selected['promotion_number']) ?></div>
-                <div class="field"><strong>Dirección Nacional</strong><br><?= e($selected['national_directorate']) ?></div>
-                <div class="field"><strong>Zona / Área</strong><br><?= e($selected['zone_name'] . ' / ' . $selected['area_name']) ?></div>
-                <div class="field"><strong>Servicio</strong><br><?= e($selected['service_name']) ?></div>
+                <div class="field"><strong>Dirección Nacional</strong><br><?= e($selected['national_directorate'] ?? 'No indicada') ?></div>
+                <div class="field"><strong>Zona / Área</strong><br><?= e(($selected['zone_name'] ?? 'No indicada') . ' / ' . ($selected['area_name'] ?? 'No indicada')) ?></div>
+                <div class="field"><strong>Servicio</strong><br><?= e($selected['service_name'] ?? 'No indicado') ?></div>
                 <div class="field"><strong>Estado del carné</strong><br><?= e($selected['card_condition']) ?></div>
                 <div class="field"><strong>Código de barras</strong><br><?= e($selected['barcode_value'] ?: 'No indicado') ?></div>
                 <div class="field"><strong>Fecha</strong><br><?= e($selected['submitted_at']) ?></div>
@@ -164,7 +177,7 @@ if ($authenticated) {
                     <tr>
                         <td><strong><?= e($row['request_number']) ?></strong><br><small><?= e($row['submitted_at']) ?></small></td>
                         <td><?= e($row['rank_name'] . ' ' . $row['first_name'] . ' ' . $row['last_name']) ?><br><small>Pos. <?= e($row['position_number']) ?></small></td>
-                        <td><?= e($row['national_directorate']) ?><br><small><?= e($row['service_name']) ?></small></td>
+                        <td><?= e($row['national_directorate'] ?? 'No indicada') ?><br><small><?= e($row['service_name'] ?? 'No indicado') ?></small></td>
                         <td><?= e($row['card_condition']) ?><br><small><?= e($row['barcode_value'] ?: 'Sin código') ?></small></td>
                         <td><span class="status-badge"><?= e($config['statuses'][$row['status']] ?? $row['status']) ?></span></td>
                         <td><a class="btn btn-outline" href="admin.php?view=<?= (int) $row['id'] ?>">Revisar</a></td>
