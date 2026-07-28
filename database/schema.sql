@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS requests (
   phone VARCHAR(20) NOT NULL,
   institutional_unit_id BIGINT UNSIGNED NOT NULL,
   exact_work_location VARCHAR(255) NOT NULL,
+  card_expiration_date DATE NOT NULL,
   card_condition VARCHAR(50) NOT NULL,
   barcode_value VARCHAR(120) NULL,
   barcode_readable TINYINT(1) NOT NULL DEFAULT 1,
@@ -44,7 +45,8 @@ CREATE TABLE IF NOT EXISTS requests (
   user_agent VARCHAR(500) NULL,
   UNIQUE KEY uq_barcode (barcode_value),
   CONSTRAINT fk_request_unit FOREIGN KEY (institutional_unit_id) REFERENCES institutional_units(id),
-  INDEX idx_request_unit (institutional_unit_id)
+  INDEX idx_request_unit (institutional_unit_id),
+  INDEX idx_card_expiration_date (card_expiration_date)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS status_history (
