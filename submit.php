@@ -18,10 +18,9 @@ function redirectError(string $message): never
 try {
     $required = [
         'position_number', 'rank_name', 'national_id', 'first_name', 'last_name',
-        'promotion_type', 'email', 'phone', 'national_directorate', 'service_name',
+        'promotion_type', 'email', 'phone', 'national_directorate_id', 'service_id',
         'card_condition', 'declaration'
     ];
-
     foreach ($required as $field) {
         if (!isset($_POST[$field]) || trim((string) $_POST[$field]) === '') {
             throw new RuntimeException('Complete todos los campos obligatorios.');
@@ -32,21 +31,43 @@ try {
     $nationalId = strtoupper(trim((string) $_POST['national_id']));
     $email = strtolower(trim((string) $_POST['email']));
     $condition = trim((string) $_POST['card_condition']);
+    $directorateId = filter_var($_POST['national_directorate_id'], FILTER_VALIDATE_INT);
+    $zoneId = filter_var($_POST['zone_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+    $areaId = filter_var($_POST['area_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+    $serviceId = filter_var($_POST['service_id'], FILTER_VALIDATE_INT);
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         throw new RuntimeException('El correo electrónico no tiene un formato válido.');
+    }
+    if (!$directorateId || !$serviceId) {
+        throw new RuntimeException('Seleccione una ubicación institucional válida.');
+    }
+
+    $locationCheck = $pdo->prepare(
+        'SELECT s.id FROM services s JOIN areas a ON a.id=s.area_id JOIN zones z ON z.id=a.zone_id WHERE s.id=? AND a.id=? AND z.id=? AND z.national_directorate_id=?'
+    );
+    $locationCheck->execute([$serviceId, $areaId, $zoneId, $directorateId]);
+    if (!$locationCheck->fetchColumn()) {
+        throw new RuntimeException('La combinación de Dirección Nacional, zona, área y servicio no es válida.');
     }
 
     $duplicate = $pdo->prepare('SELECT request_number FROM requests WHERE position_number = :position OR national_id = :national_id LIMIT 1');
     $duplicate->execute(['position' => $position, 'national_id' => $nationalId]);
     if ($duplicate->fetch()) {
-        throw new RuntimeException('Ya existe una solicitud registrada para la posición o cédula suministrada. Utilice la opción Consultar estado.');
+        throw new RuntimeException('Ya existe una solicitud registrada para la posición o cédula suministrada. Utilice Consultar estado.');
+    }
+
+    $barcode = trim((string) ($_POST['barcode_value'] ?? ''));
+    if ($barcode !== '') {
+        $barcodeCheck = $pdo->prepare('SELECT request_number FROM requests WHERE barcode_value = ? LIMIT 1');
+        $barcodeCheck->execute([$barcode]);
+        if ($barcodeCheck->fetch()) {
+            throw new RuntimeException('El código de barras ya está asociado con otra solicitud.');
+        }
     }
 
     $requestNumber = generateRequestNumber($pdo);
-    $noCardConditions = ['EXTRAVIADO_REPORTADO', 'EXTRAVIADO_NO_REPORTADO', 'ROBADO', 'NO_RECIBIDO'];
-    $requiresEvidence = !in_array($condition, $noCardConditions, true);
-
+    $requiresEvidence = !in_array($condition, ['EXTRAVIADO_REPORTADO', 'EXTRAVIADO_NO_REPORTADO', 'ROBADO', 'NO_RECIBIDO'], true);
     if ($requiresEvidence) {
         foreach (['card_front', 'card_back', 'person_with_card'] as $fileField) {
             if (!isset($_FILES[$fileField]) || $_FILES[$fileField]['error'] === UPLOAD_ERR_NO_FILE) {
@@ -59,49 +80,47 @@ try {
     $backPath = saveUploadedImage('card_back', $requestNumber, $config, $uploadDir);
     $personPath = saveUploadedImage('person_with_card', $requestNumber, $config, $uploadDir);
 
+    $pdo->beginTransaction();
     $stmt = $pdo->prepare(<<<SQL
 INSERT INTO requests (
-    request_number, position_number, rank_name, first_name, middle_name, last_name,
-    second_last_name, national_id, promotion_type, promotion_number, email, phone,
-    national_directorate, zone_name, area_name, service_name, card_condition,
-    barcode_value, barcode_readable, card_front_path, card_back_path,
-    person_with_card_path, loss_report_number, notes, status, submitted_at,
-    ip_address, user_agent
+ request_number, position_number, rank_name, first_name, middle_name, last_name, second_last_name,
+ national_id, promotion_type, promotion_number, email, phone, national_directorate_id, zone_id,
+ area_id, service_id, card_condition, barcode_value, barcode_readable, card_front_path,
+ card_back_path, person_with_card_path, loss_report_number, notes, status, submitted_at,
+ ip_address, user_agent
 ) VALUES (
-    :request_number, :position_number, :rank_name, :first_name, :middle_name, :last_name,
-    :second_last_name, :national_id, :promotion_type, :promotion_number, :email, :phone,
-    :national_directorate, :zone_name, :area_name, :service_name, :card_condition,
-    :barcode_value, :barcode_readable, :card_front_path, :card_back_path,
-    :person_with_card_path, :loss_report_number, :notes, 'RECIBIDA', :submitted_at,
-    :ip_address, :user_agent
+ :request_number, :position_number, :rank_name, :first_name, :middle_name, :last_name, :second_last_name,
+ :national_id, :promotion_type, :promotion_number, :email, :phone, :national_directorate_id, :zone_id,
+ :area_id, :service_id, :card_condition, :barcode_value, :barcode_readable, :card_front_path,
+ :card_back_path, :person_with_card_path, :loss_report_number, :notes, 'RECIBIDA', :submitted_at,
+ :ip_address, :user_agent
 )
 SQL);
-
     $stmt->execute([
         'request_number' => $requestNumber,
         'position_number' => $position,
         'rank_name' => trim((string) $_POST['rank_name']),
         'first_name' => trim((string) $_POST['first_name']),
-        'middle_name' => trim((string) ($_POST['middle_name'] ?? '')),
+        'middle_name' => trim((string) ($_POST['middle_name'] ?? '')) ?: null,
         'last_name' => trim((string) $_POST['last_name']),
-        'second_last_name' => trim((string) ($_POST['second_last_name'] ?? '')),
+        'second_last_name' => trim((string) ($_POST['second_last_name'] ?? '')) ?: null,
         'national_id' => $nationalId,
         'promotion_type' => trim((string) $_POST['promotion_type']),
-        'promotion_number' => trim((string) ($_POST['promotion_number'] ?? '')),
+        'promotion_number' => trim((string) ($_POST['promotion_number'] ?? '')) ?: null,
         'email' => $email,
         'phone' => trim((string) $_POST['phone']),
-        'national_directorate' => trim((string) $_POST['national_directorate']),
-        'zone_name' => trim((string) ($_POST['zone_name'] ?? '')),
-        'area_name' => trim((string) ($_POST['area_name'] ?? '')),
-        'service_name' => trim((string) $_POST['service_name']),
+        'national_directorate_id' => $directorateId,
+        'zone_id' => $zoneId,
+        'area_id' => $areaId,
+        'service_id' => $serviceId,
         'card_condition' => $condition,
-        'barcode_value' => trim((string) ($_POST['barcode_value'] ?? '')),
+        'barcode_value' => $barcode ?: null,
         'barcode_readable' => (int) ($_POST['barcode_readable'] ?? 1),
         'card_front_path' => $frontPath,
         'card_back_path' => $backPath,
         'person_with_card_path' => $personPath,
-        'loss_report_number' => trim((string) ($_POST['loss_report_number'] ?? '')),
-        'notes' => trim((string) ($_POST['notes'] ?? '')),
+        'loss_report_number' => trim((string) ($_POST['loss_report_number'] ?? '')) ?: null,
+        'notes' => trim((string) ($_POST['notes'] ?? '')) ?: null,
         'submitted_at' => date('Y-m-d H:i:s'),
         'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '',
         'user_agent' => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500),
@@ -110,14 +129,18 @@ SQL);
     $requestId = (int) $pdo->lastInsertId();
     $history = $pdo->prepare('INSERT INTO status_history (request_id, previous_status, new_status, observation, changed_by, changed_at) VALUES (?, ?, ?, ?, ?, ?)');
     $history->execute([$requestId, null, 'RECIBIDA', 'Solicitud registrada por el funcionario.', 'SISTEMA', date('Y-m-d H:i:s')]);
+    $pdo->commit();
 
     $subject = 'Solicitud de validación de carné recibida';
-    $body = "Estimado(a) funcionario(a):\n\nSu solicitud fue recibida correctamente.\n\nNúmero de solicitud: {$requestNumber}\n\nPara consultar el estado, ingrese al portal y utilice el número de solicitud junto con los últimos cuatro dígitos de su cédula.\n\nLa recepción no significa que el carné ya haya sido validado.\n\nDirección Nacional de Recursos Humanos";
+    $body = "Estimado(a) funcionario(a):\n\nSu solicitud fue recibida correctamente.\n\nNúmero de solicitud: {$requestNumber}\n\nPara consultar el estado, utilice el número de solicitud junto con los últimos cuatro dígitos de su cédula.\n\nDirección Nacional de Recursos Humanos";
     $headers = 'From: ' . $config['from_email'] . "\r\n" . 'Content-Type: text/plain; charset=UTF-8';
     @mail($email, $subject, $body, $headers);
 
     header('Location: index.php?success=1&request=' . rawurlencode($requestNumber));
     exit;
 } catch (Throwable $exception) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     redirectError($exception->getMessage());
 }
