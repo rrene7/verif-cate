@@ -1,0 +1,6 @@
+storage/*.sqlite
+storage/uploads/*
+!storage/uploads/.gitkeep
+.DS_Store
+Thumbs.db
+.env
