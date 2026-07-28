@@ -32,65 +32,54 @@
             });
         });
 
-    const definitions = [
-        { oldId: 'national_directorate', id: 'national_directorate_id', type: 'directorates', placeholder: 'Seleccione la Dirección Nacional' },
-        { oldId: 'zone_name', id: 'zone_id', type: 'zones', placeholder: 'Seleccione la zona' },
-        { oldId: 'area_name', id: 'area_id', type: 'areas', placeholder: 'Seleccione el área' },
-        { oldId: 'service_name', id: 'service_id', type: 'services', placeholder: 'Seleccione el servicio o dependencia' }
-    ];
+    const firstLocationInput = document.getElementById('national_directorate');
+    const locationGrid = firstLocationInput ? firstLocationInput.closest('.form-grid') : null;
 
-    const selects = {};
-    definitions.forEach(def => {
-        const old = document.getElementById(def.oldId);
-        if (!old) return;
-        const select = document.createElement('select');
-        select.id = def.id;
-        select.name = def.id;
-        select.required = old.required;
-        select.innerHTML = `<option value="">${def.placeholder}</option>`;
-        old.replaceWith(select);
-        const label = document.querySelector(`label[for="${def.oldId}"]`);
-        if (label) label.htmlFor = def.id;
-        selects[def.id] = select;
-    });
+    if (locationGrid) {
+        locationGrid.innerHTML = `
+            <div class="field half">
+                <label class="required" for="institutional_unit_id">Unidad institucional</label>
+                <select id="institutional_unit_id" name="institutional_unit_id" required>
+                    <option value="">Cargando unidades…</option>
+                </select>
+                <span class="help">Seleccione una de las 21 direcciones, 18 zonas policiales o 10 servicios oficiales.</span>
+            </div>
+            <div class="field half">
+                <label class="required" for="exact_work_location">Ubicación exacta de trabajo</label>
+                <input id="exact_work_location" name="exact_work_location" maxlength="255" required placeholder="Ejemplo: Edificio 1000, piso 2, oficina de soporte">
+                <span class="help">Indique edificio, sede, departamento, oficina, estación o lugar específico donde presta servicio.</span>
+            </div>`;
 
-    async function loadOptions(select, type, parentId = '') {
-        select.disabled = true;
-        select.innerHTML = '<option value="">Cargando…</option>';
-        const url = `api/locations.php?type=${encodeURIComponent(type)}${parentId ? `&parent_id=${encodeURIComponent(parentId)}` : ''}`;
-        try {
-            const response = await fetch(url, { headers: { Accept: 'application/json' } });
-            if (!response.ok) throw new Error('No se pudo cargar el catálogo');
-            const rows = await response.json();
-            const placeholder = definitions.find(item => item.id === select.id).placeholder;
-            select.innerHTML = `<option value="">${placeholder}</option>` + rows.map(row => `<option value="${row.id}">${row.name}</option>`).join('');
-            select.disabled = false;
-        } catch (error) {
-            select.innerHTML = '<option value="">Error al cargar</option>';
-        }
-    }
-
-    const directorate = selects.national_directorate_id;
-    const zone = selects.zone_id;
-    const area = selects.area_id;
-    const service = selects.service_id;
-    if (directorate) {
-        loadOptions(directorate, 'directorates');
-        directorate.addEventListener('change', () => {
-            zone.innerHTML = '<option value="">Seleccione la zona</option>';
-            area.innerHTML = '<option value="">Seleccione el área</option>';
-            service.innerHTML = '<option value="">Seleccione el servicio o dependencia</option>';
-            if (directorate.value) loadOptions(zone, 'zones', directorate.value);
-        });
-        zone.addEventListener('change', () => {
-            area.innerHTML = '<option value="">Seleccione el área</option>';
-            service.innerHTML = '<option value="">Seleccione el servicio o dependencia</option>';
-            if (zone.value) loadOptions(area, 'areas', zone.value);
-        });
-        area.addEventListener('change', () => {
-            service.innerHTML = '<option value="">Seleccione el servicio o dependencia</option>';
-            if (area.value) loadOptions(service, 'services', area.value);
-        });
+        const unitSelect = document.getElementById('institutional_unit_id');
+        fetch('api/locations.php', { headers: { Accept: 'application/json' } })
+            .then(response => {
+                if (!response.ok) throw new Error('No se pudo cargar el catálogo');
+                return response.json();
+            })
+            .then(rows => {
+                const labels = { DIRECCION: 'Direcciones', ZONA: 'Zonas policiales', SERVICIO: 'Servicios policiales' };
+                const groups = {};
+                rows.forEach(row => {
+                    if (!groups[row.category]) groups[row.category] = [];
+                    groups[row.category].push(row);
+                });
+                unitSelect.innerHTML = '<option value="">Seleccione su unidad institucional</option>';
+                ['DIRECCION', 'ZONA', 'SERVICIO'].forEach(category => {
+                    if (!groups[category]) return;
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = labels[category];
+                    groups[category].forEach(row => {
+                        const option = document.createElement('option');
+                        option.value = row.id;
+                        option.textContent = `${row.code} — ${row.name}`;
+                        optgroup.appendChild(option);
+                    });
+                    unitSelect.appendChild(optgroup);
+                });
+            })
+            .catch(() => {
+                unitSelect.innerHTML = '<option value="">Error al cargar las unidades</option>';
+            });
     }
 
     form.addEventListener('submit', event => {
