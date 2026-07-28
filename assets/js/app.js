@@ -82,6 +82,18 @@
             });
     }
 
+    const cardCondition = document.getElementById('card_condition');
+    const cardGrid = cardCondition ? cardCondition.closest('.form-grid') : null;
+    if (cardGrid && !document.getElementById('card_expiration_date')) {
+        const expirationField = document.createElement('div');
+        expirationField.className = 'field half';
+        expirationField.innerHTML = `
+            <label class="required" for="card_expiration_date">Fecha de expiración del carné</label>
+            <input type="date" id="card_expiration_date" name="card_expiration_date" required>
+            <span class="help">Indique la fecha de vencimiento impresa en el carné.</span>`;
+        cardGrid.insertBefore(expirationField, cardGrid.children[1] || null);
+    }
+
     form.addEventListener('submit', event => {
         updateEvidenceRequirement();
         if (!form.checkValidity()) {
