@@ -18,9 +18,10 @@ function redirectError(string $message): never
 try {
     $required = [
         'position_number', 'rank_name', 'national_id', 'first_name', 'last_name',
-        'promotion_type', 'email', 'phone', 'national_directorate_id', 'service_id',
+        'promotion_type', 'email', 'phone', 'institutional_unit_id', 'exact_work_location',
         'card_condition', 'declaration'
     ];
+
     foreach ($required as $field) {
         if (!isset($_POST[$field]) || trim((string) $_POST[$field]) === '') {
             throw new RuntimeException('Complete todos los campos obligatorios.');
@@ -31,44 +32,23 @@ try {
     $nationalId = strtoupper(trim((string) $_POST['national_id']));
     $email = strtolower(trim((string) $_POST['email']));
     $condition = trim((string) $_POST['card_condition']);
-    $directorateId = filter_var($_POST['national_directorate_id'], FILTER_VALIDATE_INT);
-    $zoneId = filter_var($_POST['zone_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
-    $areaId = filter_var($_POST['area_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
-    $serviceId = filter_var($_POST['service_id'], FILTER_VALIDATE_INT);
+    $unitId = filter_var($_POST['institutional_unit_id'], FILTER_VALIDATE_INT);
+    $exactWorkLocation = trim((string) $_POST['exact_work_location']);
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         throw new RuntimeException('El correo electrónico no tiene un formato válido.');
     }
-    if (!$directorateId || !$zoneId || !$areaId || !$serviceId) {
-        throw new RuntimeException('Seleccione la Dirección Nacional, zona, área y servicio.');
+    if (!$unitId) {
+        throw new RuntimeException('Seleccione una unidad institucional válida.');
+    }
+    if (mb_strlen($exactWorkLocation) > 255) {
+        throw new RuntimeException('La ubicación exacta de trabajo no puede superar 255 caracteres.');
     }
 
-    $locationCheck = $pdo->prepare(<<<SQL
-SELECT servicio.id
-FROM organizational_units servicio
-JOIN unit_types tipo_servicio ON tipo_servicio.id = servicio.unit_type_id
-JOIN organizational_units area ON area.id = servicio.parent_id
-JOIN unit_types tipo_area ON tipo_area.id = area.unit_type_id
-JOIN organizational_units zona ON zona.id = area.parent_id
-JOIN unit_types tipo_zona ON tipo_zona.id = zona.unit_type_id
-JOIN organizational_units direccion ON direccion.id = zona.parent_id
-JOIN unit_types tipo_direccion ON tipo_direccion.id = direccion.unit_type_id
-WHERE servicio.id = ?
-  AND area.id = ?
-  AND zona.id = ?
-  AND direccion.id = ?
-  AND servicio.status = 'active'
-  AND area.status = 'active'
-  AND zona.status = 'active'
-  AND direccion.status = 'active'
-  AND tipo_servicio.name IN ('departamento','division','seccion','oficina','dependencia','cuartel','estacion','subestacion','puesto')
-  AND tipo_area.name = 'area'
-  AND tipo_zona.name = 'zona_policial'
-  AND tipo_direccion.name = 'direccion_nacional'
-SQL);
-    $locationCheck->execute([$serviceId, $areaId, $zoneId, $directorateId]);
-    if (!$locationCheck->fetchColumn()) {
-        throw new RuntimeException('La combinación de Dirección Nacional, zona, área y servicio no es válida.');
+    $unitCheck = $pdo->prepare('SELECT id FROM institutional_units WHERE id = ? AND active = 1 LIMIT 1');
+    $unitCheck->execute([$unitId]);
+    if (!$unitCheck->fetchColumn()) {
+        throw new RuntimeException('La unidad institucional seleccionada no es válida.');
     }
 
     $duplicate = $pdo->prepare('SELECT request_number FROM requests WHERE position_number = :position OR national_id = :national_id LIMIT 1');
@@ -104,18 +84,17 @@ SQL);
     $stmt = $pdo->prepare(<<<SQL
 INSERT INTO requests (
  request_number, position_number, rank_name, first_name, middle_name, last_name, second_last_name,
- national_id, promotion_type, promotion_number, email, phone, national_directorate_id, zone_id,
- area_id, service_id, card_condition, barcode_value, barcode_readable, card_front_path,
- card_back_path, person_with_card_path, loss_report_number, notes, status, submitted_at,
- ip_address, user_agent
+ national_id, promotion_type, promotion_number, email, phone, institutional_unit_id, exact_work_location,
+ card_condition, barcode_value, barcode_readable, card_front_path, card_back_path,
+ person_with_card_path, loss_report_number, notes, status, submitted_at, ip_address, user_agent
 ) VALUES (
  :request_number, :position_number, :rank_name, :first_name, :middle_name, :last_name, :second_last_name,
- :national_id, :promotion_type, :promotion_number, :email, :phone, :national_directorate_id, :zone_id,
- :area_id, :service_id, :card_condition, :barcode_value, :barcode_readable, :card_front_path,
- :card_back_path, :person_with_card_path, :loss_report_number, :notes, 'RECIBIDA', :submitted_at,
- :ip_address, :user_agent
+ :national_id, :promotion_type, :promotion_number, :email, :phone, :institutional_unit_id, :exact_work_location,
+ :card_condition, :barcode_value, :barcode_readable, :card_front_path, :card_back_path,
+ :person_with_card_path, :loss_report_number, :notes, 'RECIBIDA', :submitted_at, :ip_address, :user_agent
 )
 SQL);
+
     $stmt->execute([
         'request_number' => $requestNumber,
         'position_number' => $position,
@@ -129,10 +108,8 @@ SQL);
         'promotion_number' => trim((string) ($_POST['promotion_number'] ?? '')) ?: null,
         'email' => $email,
         'phone' => trim((string) $_POST['phone']),
-        'national_directorate_id' => $directorateId,
-        'zone_id' => $zoneId,
-        'area_id' => $areaId,
-        'service_id' => $serviceId,
+        'institutional_unit_id' => $unitId,
+        'exact_work_location' => $exactWorkLocation,
         'card_condition' => $condition,
         'barcode_value' => $barcode ?: null,
         'barcode_readable' => (int) ($_POST['barcode_readable'] ?? 1),
