@@ -38,9 +38,13 @@ CREATE TABLE IF NOT EXISTS organizational_units (
 ) ENGINE=InnoDB;
 
 -- Reemplaza solamente la COPIA dentro de verif_cate.
+-- Se usa DELETE en lugar de TRUNCATE porque MariaDB/XAMPP puede impedir
+-- TRUNCATE sobre tablas referenciadas por claves foráneas aun durante una migración.
 SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE organizational_units;
-TRUNCATE TABLE unit_types;
+DELETE FROM organizational_units;
+DELETE FROM unit_types;
+ALTER TABLE organizational_units AUTO_INCREMENT = 1;
+ALTER TABLE unit_types AUTO_INCREMENT = 1;
 SET FOREIGN_KEY_CHECKS = 1;
 
 INSERT INTO unit_types (id, name, description, created_at, updated_at)
