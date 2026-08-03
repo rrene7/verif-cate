@@ -1,0 +1,191 @@
+<?php
+
+declare(strict_types=1);
+
+v3AuthRequired();
+
+$id = (int) ($_GET['id'] ?? 0);
+
+$stmt = $pdo->prepare(v3RequestSelect() . ' WHERE r.id = ? LIMIT 1');
+$stmt->execute([$id]);
+$row = $stmt->fetch();
+
+if (!$row) {
+    header('Location: ../admin_v3.php?page=solicitudes');
+    exit;
+}
+
+$historyStmt = $pdo->prepare(
+    'SELECT previous_status, new_status, observation, changed_by, changed_at
+     FROM status_history
+     WHERE request_id = ?
+     ORDER BY changed_at DESC, id DESC'
+);
+$historyStmt->execute([$id]);
+$history = $historyStmt->fetchAll();
+
+$expiration = v3Expiration($row['card_expiration_date']);
+$pageTitle = 'Expediente ' . $row['request_number'];
+require __DIR__ . '/partials/header.php';
+?>
+
+<section class="v3-expedient-header v3-card">
+    <div>
+        <span class="v3-eyebrow">Expediente digital</span>
+        <h2><?= e(v3FullName($row)) ?></h2>
+        <p><?= e($row['request_number']) ?> · Registrada <?= e(v3Date($row['submitted_at'], true)) ?></p>
+    </div>
+
+    <div class="v3-expedient-header-actions">
+        <span class="v3-status"><?= e($config['statuses'][$row['status']] ?? $row['status']) ?></span>
+        <a class="v3-button secondary" href="admin_v3.php?page=solicitudes">Volver</a>
+    </div>
+</section>
+
+<section class="v3-tabs-card v3-card">
+    <div class="v3-tabs">
+        <button class="active" data-v3-tab="datos">Datos</button>
+        <button data-v3-tab="evidencias">Evidencias</button>
+        <button data-v3-tab="validacion">Validación</button>
+        <button data-v3-tab="historial">Historial</button>
+    </div>
+
+    <div class="v3-tab-panel active" id="v3-tab-datos">
+        <div class="v3-detail-grid">
+            <div><span>Posición</span><strong><?= e($row['position_number']) ?></strong></div>
+            <div><span>Cédula</span><strong><?= e($row['national_id']) ?></strong></div>
+            <div><span>Rango</span><strong><?= e($row['rank_name']) ?></strong></div>
+            <div><span>Promoción</span><strong><?= e(trim($row['promotion_type'] . ' ' . ($row['promotion_number'] ?? ''))) ?></strong></div>
+            <div><span>Unidad</span><strong><?= e($row['institutional_unit_name'] ?? 'No indicada') ?></strong></div>
+            <div><span>Ubicación exacta</span><strong><?= e($row['exact_work_location'] ?: 'No indicada') ?></strong></div>
+            <div><span>Correo</span><strong><?= e($row['email']) ?></strong></div>
+            <div><span>Teléfono</span><strong><?= e($row['phone']) ?></strong></div>
+            <div><span>Expiración</span><strong><?= e(v3Date($row['card_expiration_date'])) ?></strong><small class="<?= e($expiration['class']) ?>"><?= e($expiration['label']) ?></small></div>
+            <div class="wide"><span>Código de barras</span><strong><?= e($row['barcode_value'] ?: 'No indicado') ?></strong></div>
+        </div>
+    </div>
+
+    <div class="v3-tab-panel" id="v3-tab-evidencias">
+        <div class="v3-evidence-grid">
+            <?php
+            $evidences = [
+                'card_front_path' => 'Frente del carné',
+                'card_back_path' => 'Reverso del carné',
+                'person_with_card_path' => 'Persona con el carné',
+            ];
+            ?>
+
+            <?php foreach ($evidences as $field => $label): ?>
+                <article>
+                    <div><strong><?= e($label) ?></strong></div>
+                    <?php if (!empty($row[$field])): ?>
+                        <button type="button" data-v3-image="<?= e($row[$field]) ?>" data-v3-label="<?= e($label) ?>">
+                            <img src="<?= e($row[$field]) ?>" alt="<?= e($label) ?>">
+                        </button>
+                    <?php else: ?>
+                        <div class="v3-missing">Sin imagen</div>
+                    <?php endif; ?>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+    <div class="v3-tab-panel" id="v3-tab-validacion">
+        <div class="v3-inspection-grid">
+            <article class="v3-inspection-image">
+                <h3>Frente del carné</h3>
+                <?php if (!empty($row['card_front_path'])): ?>
+                    <button type="button" data-v3-image="<?= e($row['card_front_path']) ?>" data-v3-label="Frente del carné">
+                        <img src="<?= e($row['card_front_path']) ?>" alt="Frente">
+                    </button>
+                <?php endif; ?>
+            </article>
+
+            <article class="v3-inspection-image">
+                <h3>Persona con el carné</h3>
+                <?php if (!empty($row['person_with_card_path'])): ?>
+                    <button type="button" data-v3-image="<?= e($row['person_with_card_path']) ?>" data-v3-label="Persona con el carné">
+                        <img src="<?= e($row['person_with_card_path']) ?>" alt="Persona">
+                    </button>
+                <?php endif; ?>
+            </article>
+
+            <article class="v3-inspection-image">
+                <h3>Reverso del carné</h3>
+                <?php if (!empty($row['card_back_path'])): ?>
+                    <button type="button" data-v3-image="<?= e($row['card_back_path']) ?>" data-v3-label="Reverso del carné">
+                        <img src="<?= e($row['card_back_path']) ?>" alt="Reverso">
+                    </button>
+                <?php endif; ?>
+            </article>
+
+            <article class="v3-inspection-data">
+                <h3>Datos registrados</h3>
+                <dl>
+                    <div><dt>Nombre</dt><dd><?= e(v3FullName($row)) ?></dd></div>
+                    <div><dt>Cédula</dt><dd><?= e($row['national_id']) ?></dd></div>
+                    <div><dt>Posición</dt><dd><?= e($row['position_number']) ?></dd></div>
+                    <div><dt>Expiración</dt><dd><?= e(v3Date($row['card_expiration_date'])) ?></dd></div>
+                    <div class="wide"><dt>Código</dt><dd><?= e($row['barcode_value'] ?: 'No indicado') ?></dd></div>
+                </dl>
+            </article>
+        </div>
+
+        <div class="v3-review-layout">
+            <aside class="v3-score">
+                <span>Completado</span>
+                <strong id="v3Score">0%</strong>
+                <div><i id="v3ScoreBar"></i></div>
+                <b id="v3Risk" class="risk-high">RIESGO ALTO</b>
+            </aside>
+
+            <form method="post" action="admin_update.php" id="v3ValidationForm" class="v3-review-form">
+                <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+                <input type="hidden" name="action_type" value="validation">
+                <input type="hidden" name="status" id="v3DecisionStatus">
+
+                <fieldset>
+                    <legend>Lista de comprobación</legend>
+                    <label><input type="checkbox" name="identity_verified" value="1" data-v3-check <?= !empty($row['identity_verified']) ? 'checked' : '' ?>> Nombre y cédula coinciden</label>
+                    <label><input type="checkbox" name="photos_verified" value="1" data-v3-check <?= !empty($row['photos_verified']) ? 'checked' : '' ?>> Fotografías claras y correctas</label>
+                    <label><input type="checkbox" name="expiration_verified" value="1" data-v3-check <?= !empty($row['expiration_verified']) ? 'checked' : '' ?>> Expiración verificada</label>
+                    <label><input type="checkbox" name="barcode_verified" value="1" data-v3-check <?= !empty($row['barcode_verified']) ? 'checked' : '' ?>> Código visible coincide</label>
+                    <label><input type="checkbox" name="card_integrity_verified" value="1" data-v3-check> Documento sin alteraciones visibles</label>
+                    <label><input type="checkbox" name="person_verified" value="1" data-v3-check> Persona coincide con la fotografía</label>
+                </fieldset>
+
+                <label>
+                    Observación
+                    <textarea name="admin_observation" id="v3Observation"><?= e($row['admin_observation'] ?? '') ?></textarea>
+                </label>
+
+                <div class="v3-decisions">
+                    <button type="button" data-v3-decision="VALIDADA" class="validate">Validar</button>
+                    <button type="button" data-v3-decision="EN_REVISION" class="observe">Observar</button>
+                    <button type="button" data-v3-decision="RECHAZADA" class="reject">Rechazar</button>
+                </div>
+
+                <button class="v3-button primary full" type="submit">Guardar revisión</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="v3-tab-panel" id="v3-tab-historial">
+        <div class="v3-timeline">
+            <?php foreach ($history as $item): ?>
+                <article>
+                    <time><?= e(v3Date($item['changed_at'], true)) ?></time>
+                    <strong><?= e($config['statuses'][$item['new_status']] ?? $item['new_status']) ?></strong>
+                    <p><?= e($item['observation'] ?: 'Sin observación') ?></p>
+                    <small>Por: <?= e($item['changed_by']) ?></small>
+                </article>
+            <?php endforeach; ?>
+
+            <?php if (!$history): ?>
+                <p>No hay movimientos registrados.</p>
+            <?php endif; ?>
+        </div>
+    </div>
+</section>
+
+<?php require __DIR__ . '/partials/footer.php'; ?>

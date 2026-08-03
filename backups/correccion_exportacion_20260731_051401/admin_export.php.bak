@@ -1,0 +1,88 @@
+<?php
+
+declare(strict_types=1);
+
+session_start();
+require __DIR__ . '/db.php';
+
+if (empty($_SESSION['admin_authenticated'])) {
+    header('Location: admin.php');
+    exit;
+}
+
+$where = [];
+$params = [];
+
+$status = trim((string) ($_GET['status'] ?? ''));
+$q = trim((string) ($_GET['q'] ?? ''));
+$unit = (int) ($_GET['unit'] ?? 0);
+$category = trim((string) ($_GET['category'] ?? ''));
+
+if ($status !== '') {
+    $where[] = 'r.status = :status';
+    $params['status'] = $status;
+}
+
+if ($q !== '') {
+    $where[] = '(r.request_number LIKE :q OR r.position_number LIKE :q OR r.national_id LIKE :q
+                 OR r.first_name LIKE :q OR r.last_name LIKE :q OR r.barcode_value LIKE :q
+                 OR iu.name LIKE :q OR r.exact_work_location LIKE :q)';
+    $params['q'] = '%' . $q . '%';
+}
+
+if ($unit > 0) {
+    $where[] = 'r.institutional_unit_id = :unit';
+    $params['unit'] = $unit;
+}
+
+if (in_array($category, ['DIRECCION', 'ZONA', 'SERVICIO'], true)) {
+    $where[] = 'iu.category = :category';
+    $params['category'] = $category;
+}
+
+$sql = 'SELECT r.*, iu.code AS unit_code, iu.name AS unit_name, iu.category AS unit_category
+        FROM requests r
+        LEFT JOIN institutional_units iu ON iu.id = r.institutional_unit_id'
+    . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
+    . ' ORDER BY r.submitted_at DESC';
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+
+header('Content-Type: text/csv; charset=UTF-8');
+header('Content-Disposition: attachment; filename="solicitudes_verif_cate_' . date('Ymd_His') . '.csv"');
+
+$output = fopen('php://output', 'wb');
+fwrite($output, "\xEF\xBB\xBF");
+
+fputcsv($output, [
+    'Solicitud', 'Posición', 'Rango', 'Nombre', 'Cédula', 'Promoción',
+    'Unidad', 'Categoría', 'Ubicación exacta', 'Correo', 'Teléfono',
+    'Condición del carné', 'Código de barras', 'Expiración',
+    'Estado', 'Puntaje de validación', 'Fecha de solicitud'
+], ';');
+
+while ($row = $stmt->fetch()) {
+    fputcsv($output, [
+        $row['request_number'],
+        $row['position_number'],
+        $row['rank_name'],
+        trim($row['first_name'] . ' ' . ($row['middle_name'] ?? '') . ' ' . $row['last_name'] . ' ' . ($row['second_last_name'] ?? '')),
+        $row['national_id'],
+        trim($row['promotion_type'] . ' ' . ($row['promotion_number'] ?? '')),
+        $row['unit_name'],
+        $row['unit_category'],
+        $row['exact_work_location'],
+        $row['email'],
+        $row['phone'],
+        $row['card_condition'],
+        $row['barcode_value'],
+        $row['card_expiration_date'],
+        $config['statuses'][$row['status']] ?? $row['status'],
+        $row['validation_score'] . '%',
+        $row['submitted_at'],
+    ], ';');
+}
+
+fclose($output);
+exit;
