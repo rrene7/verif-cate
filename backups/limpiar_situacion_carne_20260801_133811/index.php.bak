@@ -1,0 +1,277 @@
+<?php
+
+declare(strict_types=1);
+
+require __DIR__ . '/db.php';
+
+$success = $_GET['success'] ?? '';
+$requestNumber = $_GET['request'] ?? '';
+$error = $_GET['error'] ?? '';
+?>
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?= e($config['app_name']) ?> | Validación de carné</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+<header class="site-header">
+    <div class="container header-inner">
+        <div class="brand">
+            <img class="brand-logo" src="assets/img/logo.png" alt="Logo de Recursos Humanos" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+            <div class="logo-fallback" style="display:none">DNRH</div>
+            <div>
+                <h1>Dirección Nacional de Recursos Humanos</h1>
+                <p>Portal institucional de validación de carnés</p>
+            </div>
+        </div>
+        <nav class="top-nav">
+            <a href="#formulario">Registrar solicitud</a>
+            <a href="status.php">Consultar estado</a>
+        </nav>
+    </div>
+</header>
+
+<section class="hero">
+    <div class="container hero-grid">
+        <article class="hero-card hero-copy">
+            <span class="eyebrow">Levantamiento institucional</span>
+            <h2>Confirme que conserva su carné institucional</h2>
+            <p>Complete una sola solicitud y adjunte evidencias claras del frente, reverso y una fotografía personal sosteniendo el carné. Esta información permitirá relacionar correctamente cada funcionario con el código de barras asignado a su documento.</p>
+            <div class="notice info"><strong>Importante:</strong> después de enviar la solicitud no podrá editarla. Revise cuidadosamente todos los datos y fotografías.</div>
+        </article>
+        <aside class="hero-card hero-aside">
+            <h3>Antes de comenzar</h3>
+            <ul class="check-list">
+                <li>Tenga su carné a mano.</li>
+                <li>Use buena iluminación y evite reflejos.</li>
+                <li>Prepare su correo y número de celular.</li>
+                <li>La posición y la cédula solo podrán registrarse una vez.</li>
+                <li>Guarde el número de solicitud que recibirá.</li>
+            </ul>
+        </aside>
+    </div>
+</section>
+
+<main class="container main-content" id="formulario">
+    <?php if ($success === '1' && $requestNumber): ?>
+        <section class="card">
+            <div class="notice success">
+                <h2>Solicitud recibida correctamente</h2>
+                <p>Su número de solicitud es:</p>
+                <p style="font-size:1.4rem"><strong><?= e($requestNumber) ?></strong></p>
+                <p>También se intentó enviar una confirmación al correo registrado. Para revisar el resultado, ingrese a <a href="status.php">Consultar estado</a> y utilice el número de solicitud junto con los últimos cuatro dígitos de su cédula.</p>
+            </div>
+        </section>
+    <?php else: ?>
+        <section class="card">
+            <h2 class="card-title">Solicitud de validación de carné</h2>
+            <p class="card-subtitle">Los campos marcados con asterisco son obligatorios.</p>
+
+            <?php if ($error): ?>
+                <div class="notice error"><?= e($error) ?></div>
+            <?php endif; ?>
+
+            <form action="submit.php" method="post" enctype="multipart/form-data" id="validationForm" novalidate>
+                <input type="hidden" name="form_token" value="<?= e(bin2hex(random_bytes(16))) ?>">
+
+                <h3 class="section-title">1. Datos del funcionario</h3>
+                <div class="form-grid">
+                    <div class="field"><label class="required" for="position_number">Posición</label><input id="position_number" name="position_number" maxlength="20" required></div>
+                    <div class="field">
+    <label class="required" for="rank_name">Rango</label>
+    <select id="rank_name" name="rank_name" required>
+        <option value="">Seleccione</option>
+        <option value="DIRECTOR">Director</option>
+        <option value="COMISIONADO">Comisionado</option>
+        <option value="SUBCOMISIONADO">Subcomisionado</option>
+        <option value="MAYOR">Mayor</option>
+        <option value="CAPITÁN">Capitán</option>
+        <option value="TENIENTE">Teniente</option>
+        <option value="SUBTENIENTE">Subteniente</option>
+        <option value="SARGENTO 1°">Sargento 1°</option>
+        <option value="SARGENTO 2°">Sargento 2°</option>
+        <option value="CABO 1°">Cabo 1°</option>
+        <option value="CABO 2°">Cabo 2°</option>
+        <option value="AGENTE">Agente</option>
+        <option value="MNJ">MNJ</option>
+    </select>
+</div>
+                    <div class="field"><label class="required" for="national_id">Cédula</label><input id="national_id" name="national_id" maxlength="30" required></div>
+                    <div class="field"><label class="required" for="first_name">Primer nombre</label><input id="first_name" name="first_name" maxlength="80" required></div>
+                    <div class="field"><label for="middle_name">Segundo nombre</label><input id="middle_name" name="middle_name" maxlength="80"></div>
+                    <div class="field"><label class="required" for="last_name">Primer apellido</label><input id="last_name" name="last_name" maxlength="80" required></div>
+                    <div class="field"><label for="second_last_name">Segundo apellido</label><input id="second_last_name" name="second_last_name" maxlength="80"></div>
+                    <div class="field">
+                        <label class="required" for="promotion_type">Tipo de promoción</label>
+                        <select id="promotion_type" name="promotion_type" required>
+                            <option value="">Seleccione</option>
+                            <option value="OFICIAL">Oficial</option>
+                            <option value="TROPA">Tropa</option>
+                        </select>
+                    </div>
+                    <div class="field"><label for="promotion_number">N.º de promoción</label><input id="promotion_number" name="promotion_number" maxlength="30"></div>
+                    <div class="field half"><label class="required" for="email">Correo electrónico</label><input type="email" id="email" name="email" maxlength="150" required></div>
+                    <div class="field half"><label class="required" for="phone">Número de celular</label><input type="tel" id="phone" name="phone" maxlength="20" placeholder="Ejemplo: 6000-0000" required></div>
+                </div>
+
+                <h3 class="section-title">2. Ubicación institucional</h3>
+                <div class="form-grid">
+                    <div class="field half"><label class="required" for="national_directorate">Dirección Nacional</label><input id="national_directorate" name="national_directorate" maxlength="150" required></div>
+                    <div class="field half"><label for="zone_name">Zona</label><input id="zone_name" name="zone_name" maxlength="150"></div>
+                    <div class="field half"><label for="area_name">Área</label><input id="area_name" name="area_name" maxlength="150"></div>
+                    <div class="field half"><label class="required" for="service_name">Servicio o dependencia</label><input id="service_name" name="service_name" maxlength="180" required></div>
+                </div>
+
+                <h3 class="section-title">3. Situación del carné</h3>
+                <div class="form-grid">
+                    
+
+
+
+
+
+
+
+
+
+<div class="field half">
+                        <label class="required" for="card_condition">Estado actual</label>
+                        <select id="card_condition" name="card_condition" required>
+                            <option value="">Seleccione</option>
+                            <option value="BUEN_ESTADO">Lo tengo y está en buen estado</option>
+                            <option value="DETERIORADO">Lo tengo, pero está deteriorado</option>
+                            <option value="CODIGO_ILEGIBLE">El código de barras no se puede leer</option>
+                            <option value="DATOS_INCORRECTOS">Los datos impresos presentan errores</option>
+                            <option value="EXTRAVIADO_REPORTADO">Lo perdí y ya lo reporté</option>
+                            <option value="EXTRAVIADO_NO_REPORTADO">Lo perdí y no lo he reportado</option>
+                            <option value="ROBADO">Fue robado</option>
+                            <option value="NO_RECIBIDO">Nunca fue recibido</option>
+                        </select>
+                    </div>
+<div class="uniform-section-break">
+    <span class="uniform-section-number">5.</span>
+    <div>
+        <h3>Uniforme</h3>
+        <p>Indique la condición operativa y las tallas correspondientes al uniforme de fatiga.</p>
+    </div>
+</div>
+<div class="field">
+    <label class="required" for="operational_status">Operatividad</label>
+    <select id="operational_status" name="operational_status" required>
+        <option value="">Seleccione</option>
+        <option value="OPERATIVO">Operativo</option>
+        <option value="NO_OPERATIVO">No operativo</option>
+    </select>
+</div>
+<div class="field">
+    <label class="required" for="fatigue_pants_size">Talla de pantalón de fatiga</label>
+    <select id="fatigue_pants_size" name="fatigue_pants_size" required>
+        <option value="">Seleccione</option>
+        <option value="28">28</option>
+        <option value="30">30</option>
+        <option value="32">32</option>
+        <option value="34">34</option>
+        <option value="36">36</option>
+        <option value="38">38</option>
+        <option value="40">40</option>
+        <option value="42">42</option>
+        <option value="44">44</option>
+        <option value="46">46</option>
+        <option value="48">48</option>
+        <option value="50">50</option>
+        <option value="52">52</option>
+        <option value="54">54</option>
+        <option value="56">56</option>
+        <option value="58">58</option>
+        <option value="60">60</option>
+    </select>
+</div>
+<div class="field">
+    <label class="required" for="fatigue_shirt_size">Talla de camisa de fatiga</label>
+    <select id="fatigue_shirt_size" name="fatigue_shirt_size" required>
+        <option value="">Seleccione</option>
+        <option value="XS">XS</option>
+        <option value="S">S</option>
+        <option value="M">M</option>
+        <option value="L">L</option>
+        <option value="XL">XL</option>
+        <option value="2XL">2XL</option>
+        <option value="3XL">3XL</option>
+        <option value="4XL">4XL</option>
+        <option value="5XL">5XL</option>
+    </select>
+</div>
+<div class="field">
+    <label class="required" for="boots_size">Talla de botas</label>
+    <select id="boots_size" name="boots_size" required>
+        <option value="">Seleccione</option>
+        <option value="35">35</option>
+        <option value="36">36</option>
+        <option value="37">37</option>
+        <option value="38">38</option>
+        <option value="39">39</option>
+        <option value="40">40</option>
+        <option value="41">41</option>
+        <option value="42">42</option>
+        <option value="43">43</option>
+        <option value="44">44</option>
+        <option value="45">45</option>
+        <option value="46">46</option>
+        <option value="47">47</option>
+        <option value="48">48</option>
+        <option value="49">49</option>
+        <option value="50">50</option>
+    </select>
+</div>
+
+                    <div class="field half"><label for="barcode_value">Código de barras</label><input id="barcode_value" name="barcode_value" maxlength="120" placeholder="Escríbalo tal como aparece"><span class="help">Este levantamiento permitirá asociar por primera vez el código con el funcionario.</span></div>
+                    <div class="field half"><label for="loss_report_number">Número de reporte, si aplica</label><input id="loss_report_number" name="loss_report_number" maxlength="80"></div>
+                    <div class="field half"><label for="barcode_readable">Lectura del código</label><select id="barcode_readable" name="barcode_readable"><option value="1">Legible</option><option value="0">Ilegible o deteriorado</option></select></div>
+                </div>
+
+                <h3 class="section-title">4. Evidencias fotográficas</h3>
+                <div class="notice warning">Las tres fotografías son obligatorias cuando el funcionario conserva el carné. Para casos de extravío, robo o no recibido, el sistema permitirá enviar sin fotografías del documento.</div>
+                <div class="upload-grid">
+                    <div class="upload-box">
+                        <strong>Frente del carné</strong>
+                        <div class="upload-example">Centre todo el carné dentro del marco, sin cortar bordes ni cubrir datos.</div>
+                        <img class="preview" id="preview_front" alt="Vista previa del frente">
+                        <input type="file" id="card_front" name="card_front" accept="image/jpeg,image/png,image/webp" capture="environment">
+                    </div>
+                    <div class="upload-box">
+                        <strong>Reverso del carné</strong>
+                        <div class="upload-example">Asegúrese de que el código de barras se vea completo y con buena iluminación.</div>
+                        <img class="preview" id="preview_back" alt="Vista previa del reverso">
+                        <input type="file" id="card_back" name="card_back" accept="image/jpeg,image/png,image/webp" capture="environment">
+                    </div>
+                    <div class="upload-box">
+                        <strong>Persona sosteniendo el carné</strong>
+                        <div class="upload-example">Mire a la cámara y sostenga el carné cerca del rostro sin cubrirlo.</div>
+                        <img class="preview" id="preview_person" alt="Vista previa personal">
+                        <input type="file" id="person_with_card" name="person_with_card" accept="image/jpeg,image/png,image/webp" capture="user">
+                    </div>
+                </div>
+
+                <h3 class="section-title">5. Declaración</h3>
+                <div class="form-grid">
+                    <div class="field full"><label for="notes">Observaciones adicionales</label><textarea id="notes" name="notes" maxlength="1200"></textarea></div>
+                    <div class="field full"><label style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" name="declaration" value="1" required style="width:auto;margin-top:4px"> Declaro que la información proporcionada es verdadera y que las evidencias corresponden a mi carné institucional y a mi persona.</label></div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-primary" type="submit">Enviar solicitud</button>
+                    <a class="btn btn-outline" href="status.php">Consultar una solicitud</a>
+                </div>
+            </form>
+        </section>
+    <?php endif; ?>
+</main>
+
+<footer class="site-footer"><div class="container">Dirección Nacional de Recursos Humanos · Policía Nacional</div></footer>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/promotion-rules.js?v=20260731-1"></script>
+</body>
+</html>

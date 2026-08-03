@@ -28,7 +28,46 @@ try {
         }
     }
 
-    $position = trim((string) $_POST['position_number']);
+
+    $allowedRanks = [
+        'DIRECTOR',
+        'COMISIONADO',
+        'SUBCOMISIONADO',
+        'MAYOR',
+        'CAPITÁN',
+        'TENIENTE',
+        'SUBTENIENTE',
+        'SARGENTO 1°',
+        'SARGENTO 2°',
+        'CABO 1°',
+        'CABO 2°',
+        'AGENTE',
+        'MNJ',
+    ];
+
+    $rankName = strtoupper(trim((string) $_POST['rank_name']));
+
+    if (!in_array($rankName, $allowedRanks, true)) {
+        throw new RuntimeException('Seleccione un rango válido.');
+    }
+
+        $promotionExemptRanks = ['DIRECTOR', 'MNJ'];
+    $promotionDoesNotApply = in_array($rankName, $promotionExemptRanks, true);
+
+    if ($promotionDoesNotApply) {
+        $promotionType = null;
+        $promotionNumber = null;
+    } else {
+        $promotionType = trim((string) ($_POST['promotion_type'] ?? ''));
+        $promotionNumber = trim((string) ($_POST['promotion_number'] ?? ''));
+
+        if ($promotionType === '' || $promotionNumber === '') {
+            throw new RuntimeException(
+                'Debe indicar el tipo y número de promoción para el rango seleccionado.'
+            );
+        }
+    }
+$position = trim((string) $_POST['position_number']);
     $nationalId = strtoupper(trim((string) $_POST['national_id']));
     $email = strtolower(trim((string) $_POST['email']));
     $condition = trim((string) $_POST['card_condition']);
@@ -105,7 +144,7 @@ SQL);
     $stmt->execute([
         'request_number' => $requestNumber,
         'position_number' => $position,
-        'rank_name' => trim((string) $_POST['rank_name']),
+        'rank_name' => $rankName,
         'first_name' => trim((string) $_POST['first_name']),
         'middle_name' => trim((string) ($_POST['middle_name'] ?? '')) ?: null,
         'last_name' => trim((string) $_POST['last_name']),

@@ -1,0 +1,106 @@
+document.addEventListener('DOMContentLoaded', () => {
+    const button = document.getElementById('runVisionOcr');
+
+    if (!button) {
+        return;
+    }
+
+    const status = document.getElementById('visionStatus');
+    const results = document.getElementById('visionResults');
+    const previewFront = document.getElementById('visionFrontPreview');
+    const previewBack = document.getElementById('visionBackPreview');
+    const frontTextArea = document.getElementById('ocrFrontText');
+    const backTextArea = document.getElementById('ocrBackText');
+
+    const setStatus = (message, type = '') => {
+        status.textContent = message;
+        status.className = type ? `ocr-status ${type}` : 'ocr-status';
+    };
+
+    const qualityHtml = (label, quality) => `
+        <article class="vision-quality-card">
+            <h4>${label}</h4>
+            <div class="${quality.coverageOk ? 'quality-ok' : 'quality-bad'}">
+                Cobertura del carné: ${quality.coverage}%
+            </div>
+            <div class="${quality.blurOk ? 'quality-ok' : 'quality-bad'}">
+                Nitidez: ${quality.blur}
+            </div>
+            <div class="${quality.glareOk ? 'quality-ok' : 'quality-bad'}">
+                Reflejo: ${quality.glare}%
+            </div>
+        </article>
+    `;
+
+    const recognize = async (dataUrl, label) => {
+        setStatus(`${label}: ejecutando OCR...`);
+
+        const response = await Tesseract.recognize(dataUrl, 'spa+eng', {
+            logger: (message) => {
+                if (message.status === 'recognizing text') {
+                    setStatus(`${label}: ${Math.round((message.progress || 0) * 100)}%`);
+                }
+            }
+        });
+
+        return response?.data?.text || '';
+    };
+
+    button.addEventListener('click', async () => {
+        if (!window.cv || !window.VerifCateVision || !window.Tesseract) {
+            setStatus('El módulo de visión todavía está cargando. Espere unos segundos e intente nuevamente.', 'warning');
+            return;
+        }
+
+        const front = button.dataset.front || '';
+        const back = button.dataset.back || '';
+
+        if (!front && !back) {
+            setStatus('No hay fotografías para analizar.', 'danger');
+            return;
+        }
+
+        button.disabled = true;
+        results.innerHTML = '';
+
+        try {
+            setStatus('Detectando y recortando el frente...');
+            const frontResult = front ? await window.VerifCateVision.process(front) : null;
+
+            setStatus('Detectando y recortando el reverso...');
+            const backResult = back ? await window.VerifCateVision.process(back) : null;
+
+            if (frontResult && previewFront) {
+                previewFront.src = frontResult.croppedUrl;
+                previewFront.hidden = false;
+            }
+
+            if (backResult && previewBack) {
+                previewBack.src = backResult.croppedUrl;
+                previewBack.hidden = false;
+            }
+
+            results.innerHTML =
+                (frontResult ? qualityHtml('Frente', frontResult.quality) : '') +
+                (backResult ? qualityHtml('Reverso', backResult.quality) : '');
+
+            const frontText = frontResult
+                ? await recognize(frontResult.enhancedUrl, 'Frente')
+                : '';
+
+            const backText = backResult
+                ? await recognize(backResult.enhancedUrl, 'Reverso')
+                : '';
+
+            if (frontTextArea) frontTextArea.value = frontText;
+            if (backTextArea) backTextArea.value = backText;
+
+            setStatus('Procesamiento completado. Ahora presione “Ejecutar OCR y comparar” para guardar la comparación.', 'success');
+        } catch (error) {
+            console.error(error);
+            setStatus(error.message || 'No fue posible procesar las imágenes.', 'danger');
+        } finally {
+            button.disabled = false;
+        }
+    });
+});

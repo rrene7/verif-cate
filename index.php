@@ -80,7 +80,25 @@ $error = $_GET['error'] ?? '';
                 <h3 class="section-title">1. Datos del funcionario</h3>
                 <div class="form-grid">
                     <div class="field"><label class="required" for="position_number">Posición</label><input id="position_number" name="position_number" maxlength="20" required></div>
-                    <div class="field"><label class="required" for="rank_name">Rango</label><input id="rank_name" name="rank_name" maxlength="80" required></div>
+                    <div class="field">
+    <label class="required" for="rank_name">Rango</label>
+    <select id="rank_name" name="rank_name" required>
+        <option value="">Seleccione</option>
+        <option value="DIRECTOR">Director</option>
+        <option value="COMISIONADO">Comisionado</option>
+        <option value="SUBCOMISIONADO">Subcomisionado</option>
+        <option value="MAYOR">Mayor</option>
+        <option value="CAPITÁN">Capitán</option>
+        <option value="TENIENTE">Teniente</option>
+        <option value="SUBTENIENTE">Subteniente</option>
+        <option value="SARGENTO 1°">Sargento 1°</option>
+        <option value="SARGENTO 2°">Sargento 2°</option>
+        <option value="CABO 1°">Cabo 1°</option>
+        <option value="CABO 2°">Cabo 2°</option>
+        <option value="AGENTE">Agente</option>
+        <option value="MNJ">MNJ</option>
+    </select>
+</div>
                     <div class="field"><label class="required" for="national_id">Cédula</label><input id="national_id" name="national_id" maxlength="30" required></div>
                     <div class="field"><label class="required" for="first_name">Primer nombre</label><input id="first_name" name="first_name" maxlength="80" required></div>
                     <div class="field"><label for="middle_name">Segundo nombre</label><input id="middle_name" name="middle_name" maxlength="80"></div>
@@ -109,7 +127,17 @@ $error = $_GET['error'] ?? '';
 
                 <h3 class="section-title">3. Situación del carné</h3>
                 <div class="form-grid">
-                    <div class="field half">
+                    
+
+
+
+
+
+
+
+
+
+<div class="field half">
                         <label class="required" for="card_condition">Estado actual</label>
                         <select id="card_condition" name="card_condition" required>
                             <option value="">Seleccione</option>
@@ -123,9 +151,87 @@ $error = $_GET['error'] ?? '';
                             <option value="NO_RECIBIDO">Nunca fue recibido</option>
                         </select>
                     </div>
-                    <div class="field half"><label for="barcode_value">Código de barras</label><input id="barcode_value" name="barcode_value" maxlength="120" placeholder="Escríbalo tal como aparece"><span class="help">Este levantamiento permitirá asociar por primera vez el código con el funcionario.</span></div>
-                    <div class="field half"><label for="loss_report_number">Número de reporte, si aplica</label><input id="loss_report_number" name="loss_report_number" maxlength="80"></div>
-                    <div class="field half"><label for="barcode_readable">Lectura del código</label><select id="barcode_readable" name="barcode_readable"><option value="1">Legible</option><option value="0">Ilegible o deteriorado</option></select></div>
+<div class="field half"><label for="barcode_value">Código de barras</label><input id="barcode_value" name="barcode_value" maxlength="120" placeholder="Escríbalo tal como aparece"><span class="help">Este levantamiento permitirá asociar por primera vez el código con el funcionario.</span></div>
+
+<div class="uniform-section-break">
+    <span class="uniform-section-number">5.</span>
+    <div>
+        <h3>Uniforme</h3>
+        <p>Indique la condición operativa y las tallas correspondientes al uniforme de fatiga.</p>
+    </div>
+</div>
+<div class="field">
+    <label class="required" for="operational_status">Operatividad</label>
+    <select id="operational_status" name="operational_status" required>
+        <option value="">Seleccione</option>
+        <option value="OPERATIVO">Operativo</option>
+        <option value="NO_OPERATIVO">No operativo</option>
+    </select>
+</div>
+<div class="field">
+    <label class="required" for="fatigue_pants_size">Talla de pantalón de fatiga</label>
+    <select id="fatigue_pants_size" name="fatigue_pants_size" required>
+        <option value="">Seleccione</option>
+        <option value="28">28</option>
+        <option value="30">30</option>
+        <option value="32">32</option>
+        <option value="34">34</option>
+        <option value="36">36</option>
+        <option value="38">38</option>
+        <option value="40">40</option>
+        <option value="42">42</option>
+        <option value="44">44</option>
+        <option value="46">46</option>
+        <option value="48">48</option>
+        <option value="50">50</option>
+        <option value="52">52</option>
+        <option value="54">54</option>
+        <option value="56">56</option>
+        <option value="58">58</option>
+        <option value="60">60</option>
+    </select>
+</div>
+<div class="field">
+    <label class="required" for="fatigue_shirt_size">Talla de camisa de fatiga</label>
+    <select id="fatigue_shirt_size" name="fatigue_shirt_size" required>
+        <option value="">Seleccione</option>
+        <option value="XS">XS</option>
+        <option value="S">S</option>
+        <option value="M">M</option>
+        <option value="L">L</option>
+        <option value="XL">XL</option>
+        <option value="2XL">2XL</option>
+        <option value="3XL">3XL</option>
+        <option value="4XL">4XL</option>
+        <option value="5XL">5XL</option>
+    </select>
+</div>
+<div class="field">
+    <label class="required" for="boots_size">Talla de botas</label>
+    <select id="boots_size" name="boots_size" required>
+        <option value="">Seleccione</option>
+        <option value="35">35</option>
+        <option value="36">36</option>
+        <option value="37">37</option>
+        <option value="38">38</option>
+        <option value="39">39</option>
+        <option value="40">40</option>
+        <option value="41">41</option>
+        <option value="42">42</option>
+        <option value="43">43</option>
+        <option value="44">44</option>
+        <option value="45">45</option>
+        <option value="46">46</option>
+        <option value="47">47</option>
+        <option value="48">48</option>
+        <option value="49">49</option>
+        <option value="50">50</option>
+    </select>
+</div>
+
+                    
+                    
+                    
                 </div>
 
                 <h3 class="section-title">4. Evidencias fotográficas</h3>
@@ -168,5 +274,6 @@ $error = $_GET['error'] ?? '';
 
 <footer class="site-footer"><div class="container">Dirección Nacional de Recursos Humanos · Policía Nacional</div></footer>
 <script src="assets/js/app.js"></script>
+<script src="assets/js/promotion-rules.js?v=20260731-1"></script>
 </body>
 </html>
